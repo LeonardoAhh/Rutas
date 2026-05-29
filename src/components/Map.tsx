@@ -12,7 +12,7 @@ import 'leaflet/dist/leaflet.css';
 import { LatLngExpression, LatLngBounds } from 'leaflet';
 import L from 'leaflet';
 import { type Coordinates } from '@/services/geocoding';
-import { useEffect, useState, useRef, forwardRef } from 'react';
+import { useEffect, useState, useRef } from 'react';
 
 function createNumberedIcon(index: number, total: number): L.DivIcon {
   const isFirst = index === 0;
@@ -111,6 +111,7 @@ interface MapProps {
   distanceKm?: number;
   durationMin?: number;
   labels?: string[];
+  mapRefCallback?: (ref: MapRef) => void;
 }
 
 function isValidCoord(c: unknown): c is Coordinates {
@@ -133,19 +134,16 @@ function formatDuration(min: number): string {
   return m > 0 ? `${h} h ${m} min` : `${h} h`;
 }
 
-const Map = forwardRef<MapRef, MapProps>(
-  ({ routeCoordinates: rawCoords, roadGeometry, distanceKm, durationMin, labels }, ref) => {
+const Map = ({ routeCoordinates: rawCoords, roadGeometry, distanceKm, durationMin, labels, mapRefCallback }: MapProps) => {
     const routeCoordinates = rawCoords.filter(isValidCoord);
     const defaultPosition: LatLngExpression = [40.416775, -3.70379];
     const containerRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => {
-      if (ref && typeof ref === 'object') {
-        (ref as React.MutableRefObject<MapRef | null>).current = {
-          getContainer: () => containerRef.current,
-        };
+      if (mapRefCallback && containerRef.current) {
+        mapRefCallback({ getContainer: () => containerRef.current });
       }
-    }, [ref]);
+    }, [mapRefCallback]);
 
     const polylinePositions: L.LatLngTuple[] =
       roadGeometry && roadGeometry.length > 1
@@ -217,9 +215,6 @@ const Map = forwardRef<MapRef, MapProps>(
         )}
       </div>
     );
-  }
-);
-
-Map.displayName = 'Map';
+};
 
 export default Map;
