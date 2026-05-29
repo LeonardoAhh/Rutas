@@ -1,0 +1,107 @@
+
+import type { Config } from "tailwindcss";
+
+const config: Config = {
+  content: [
+    "./src/pages/**/*.{js,ts,jsx,tsx,mdx}",
+    "./src/components/**/*.{js,ts,jsx,tsx,mdx}",
+    "./src/app/**/*.{js,ts,jsx,tsx,mdx}",
+  ],
+  theme: {
+    extend: {
+      colors: {
+        // Brand & Accent
+        "ink-primary": "#292524",
+        "ink-primary-active": "#0c0a09",
+
+        // Surface
+        canvas: "#f5f5f5",
+        "canvas-soft": "#fafafa",
+        "canvas-deep": "#0c0a09",
+        "surface-card": "#ffffff",
+        "surface-strong": "#f0efed",
+        "surface-dark": "#0c0a09",
+        "surface-dark-elevated": "#1c1917",
+
+        // Hairlines
+        hairline: "#e7e5e4",
+        "hairline-soft": "#f0efed",
+        "hairline-strong": "#d6d3d1",
+
+        // Text
+        ink: "#0c0a09",
+        body: "#4e4e4e",
+        "body-strong": "#292524",
+        muted: "#777169",
+        "muted-soft": "#a8a29e",
+        "on-primary": "#ffffff",
+        "on-dark": "#ffffff",
+        "on-dark-soft": "#a8a29e",
+
+        // Atmospheric Gradient Stops
+        "gradient-mint": "#a7e5d3",
+        "gradient-peach": "#f4c5a8",
+        "gradient-lavender": "#c8b8e0",
+        "gradient-sky": "#a8c8e8",
+        "gradient-rose": "#e8b8c4",
+
+        // Semantic
+        "semantic-success": "#16a34a",
+        "semantic-error": "#dc2626",
+      },
+      fontFamily: {
+        serif: ["'EB Garamond'", "serif"],
+        sans: ["'Inter'", "sans-serif"],
+      },
+      fontSize: {
+        "display-mega": ["64px", { lineHeight: "1.05", letterSpacing: "-1.92px" }],
+        "display-xl": ["48px", { lineHeight: "1.08", letterSpacing: "-0.96px" }],
+        "display-lg": ["36px", { lineHeight: "1.17", letterSpacing: "-0.36px" }],
+        "display-md": ["32px", { lineHeight: "1.13", letterSpacing: "-0.32px" }],
+        "display-sm": ["24px", { lineHeight: "1.2", letterSpacing: "0" }],
+        "title-md": ["20px", { lineHeight: "1.35", letterSpacing: "0" }],
+        "title-sm": ["18px", { lineHeight: "1.44", letterSpacing: "0.18px" }],
+        "body-md": ["16px", { lineHeight: "1.5", letterSpacing: "0.16px" }],
+        "body-strong": ["16px", { lineHeight: "1.5", letterSpacing: "0.16px" }],
+        "body-sm": ["15px", { lineHeight: "1.47", letterSpacing: "0.15px" }],
+        caption: ["14px", { lineHeight: "1.5", letterSpacing: "0" }],
+        "caption-uppercase": ["12px", { lineHeight: "1.4", letterSpacing: "0.96px" }],
+        button: ["15px", { lineHeight: "1.0", letterSpacing: "0" }],
+        "nav-link": ["15px", { lineHeight: "1.4", letterSpacing: "0" }],
+      },
+      fontWeight: {
+        light: "300",
+        normal: "400",
+        medium: "500",
+        semibold: "600",
+      },
+      spacing: {
+        xxs: "4px",
+        xs: "8px",
+        sm: "12px",
+        base: "16px",
+        md: "20px",
+        lg: "24px",
+        xl: "32px",
+        xxl: "48px",
+        section: "96px",
+      },
+      borderRadius: {
+        none: "0px",
+        xs: "4px",
+        sm: "6px",
+        md: "8px",
+        lg: "12px",
+        xl: "16px",
+        xxl: "24px",
+        pill: "9999px",
+        full: "9999px",
+      },
+      boxShadow: {
+        "soft-drop": "0 4px 16px rgba(0, 0, 0, 0.04)",
+      },
+    },
+  },
+  plugins: [],
+};
+export default config;
