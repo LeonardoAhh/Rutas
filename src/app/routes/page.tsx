@@ -192,18 +192,90 @@ export default function RoutesPage() {
     }
 
     setExporting(true);
+
+    await new Promise((r) => setTimeout(r, 800));
+
     try {
       const html2canvas = (await import('html2canvas')).default;
-      const canvas = await html2canvas(container, {
+      const mapCanvas = await html2canvas(container, {
         useCORS: true,
         allowTaint: true,
-        backgroundColor: '#f5f5f5',
+        backgroundColor: '#ffffff',
+        scale: 2,
       });
+
+      const addresses = [start, ...stops.map((s) => s.value), end].filter(
+        Boolean
+      );
+      const name =
+        routeName.trim() ||
+        `Ruta — ${new Date().toLocaleDateString('es-MX', { day: '2-digit', month: 'long', year: 'numeric' })}`;
+
+      const headerH = 80;
+      const stopsH = addresses.length * 28 + 20;
+      const footerH = routeDistance != null ? 50 : 0;
+      const padding = 32;
+      const totalH = headerH + stopsH + mapCanvas.height + footerH + padding;
+      const totalW = mapCanvas.width;
+
+      const out = document.createElement('canvas');
+      out.width = totalW;
+      out.height = totalH;
+      const ctx = out.getContext('2d');
+      if (!ctx) throw new Error('No canvas context');
+
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(0, 0, totalW, totalH);
+
+      ctx.fillStyle = '#292524';
+      ctx.font = `bold ${28 * 2}px Inter, system-ui, sans-serif`;
+      ctx.fillText(name, padding, headerH - 16);
+
+      ctx.font = `${13 * 2}px Inter, system-ui, sans-serif`;
+      addresses.forEach((addr, i) => {
+        const y = headerH + 12 + i * 28 * 2;
+        const isFirst = i === 0;
+        const isLast = i === addresses.length - 1;
+        const marker = isFirst ? 'A' : isLast ? 'B' : String(i);
+        const color = isFirst ? '#16a34a' : isLast ? '#dc2626' : '#292524';
+
+        ctx.fillStyle = color;
+        ctx.beginPath();
+        ctx.arc(padding + 12, y - 6, 12, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.fillStyle = '#ffffff';
+        ctx.font = `bold ${11 * 2}px Inter, system-ui, sans-serif`;
+        ctx.textAlign = 'center';
+        ctx.fillText(marker, padding + 12, y - 1);
+        ctx.textAlign = 'left';
+
+        ctx.fillStyle = '#57534e';
+        ctx.font = `${13 * 2}px Inter, system-ui, sans-serif`;
+        ctx.fillText(addr, padding + 36, y);
+      });
+
+      const mapY = headerH + stopsH;
+      ctx.drawImage(mapCanvas, 0, mapY);
+
+      if (routeDistance != null) {
+        const footerY = mapY + mapCanvas.height + 16;
+        ctx.fillStyle = '#292524';
+        ctx.font = `600 ${14 * 2}px Inter, system-ui, sans-serif`;
+        let info = `${routeCoordinates.length} paradas · ${routeDistance.toFixed(1)} km`;
+        if (routeDuration != null) {
+          const h = Math.floor(routeDuration / 60);
+          const m = Math.round(routeDuration % 60);
+          info += ` · ${h > 0 ? `${h} h ${m} min` : `${m} min`}`;
+        }
+        ctx.fillText(info, padding, footerY);
+      }
+
       const link = document.createElement('a');
       link.download = `ruta-${Date.now()}.png`;
-      link.href = canvas.toDataURL('image/png');
+      link.href = out.toDataURL('image/png');
       link.click();
-      showToast('Imagen descargada.', 'success');
+      showToast('Mockup descargado.', 'success');
     } catch {
       showToast('Error al exportar imagen.');
     } finally {
@@ -322,7 +394,7 @@ export default function RoutesPage() {
                   className="w-full"
                 >
                   <Download size={16} className="mr-xs" />
-                  {exporting ? 'Exportando...' : 'Descargar Mapa (PNG)'}
+                  {exporting ? 'Generando mockup...' : 'Descargar Mockup (PNG)'}
                 </Button>
               </motion.div>
             )}
