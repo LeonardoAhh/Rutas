@@ -60,22 +60,22 @@ const AnimatedPolyline = ({
 }: {
   positions: L.LatLngTuple[];
 }) => {
-  const [visible, setVisible] = useState<L.LatLngTuple[]>([]);
+  const [count, setCount] = useState(2);
   const frameRef = useRef<number>(0);
 
   useEffect(() => {
     if (positions.length < 2) {
-      setVisible(positions);
+      setCount(positions.length);
       return;
     }
 
-    setVisible([positions[0]]);
-    let current = 1;
+    setCount(2);
+    let idx = 2;
 
     const step = () => {
-      if (current < positions.length) {
-        setVisible((prev) => [...prev, positions[current]]);
-        current++;
+      if (idx < positions.length) {
+        idx++;
+        setCount(idx);
         frameRef.current = requestAnimationFrame(step);
       }
     };
@@ -84,6 +84,8 @@ const AnimatedPolyline = ({
 
     return () => cancelAnimationFrame(frameRef.current);
   }, [positions]);
+
+  const visible = positions.slice(0, count);
 
   if (visible.length < 2) return null;
 
