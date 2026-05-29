@@ -1,14 +1,30 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import dynamic from 'next/dynamic';
 import { geocodeAddress, type Coordinates } from '@/services/geocoding';
-import { Plus, X } from 'lucide-react';
+import {
+  getSavedRoutes,
+  saveRoute,
+  deleteRoute,
+  type SavedRoute,
+} from '@/services/savedRoutes';
+import {
+  Plus,
+  X,
+  Save,
+  Download,
+  Trash2,
+  FolderOpen,
+  ChevronDown,
+  ChevronUp,
+} from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Button from '@/components/ui/Button';
 import TextInput from '@/components/ui/TextInput';
 import Label from '@/components/ui/Label';
 import Toast from '@/components/ui/Toast';
+import type { MapRef } from '@/components/Map';
 
 const Map = dynamic(() => import('@/components/Map'), {
   ssr: false,
@@ -28,15 +44,36 @@ interface Stop {
 
 export default function RoutesPage() {
   const [start, setStart] = useState('');
-  const [stops, setStops] = useState<Stop[]>([{ id: stopIdCounter++, value: '' }]);
+  const [stops, setStops] = useState<Stop[]>([
+    { id: stopIdCounter++, value: '' },
+  ]);
   const [end, setEnd] = useState('');
   const [routeCoordinates, setRouteCoordinates] = useState<Coordinates[]>([]);
+  const [routeLabels, setRouteLabels] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
-  const [toast, setToast] = useState<{ visible: boolean; message: string; type: 'error' | 'success' }>({ visible: false, message: '', type: 'error' });
+  const [exporting, setExporting] = useState(false);
+  const [toast, setToast] = useState<{
+    visible: boolean;
+    message: string;
+    type: 'error' | 'success';
+  }>({ visible: false, message: '', type: 'error' });
 
-  const showToast = useCallback((message: string, type: 'error' | 'success' = 'error') => {
-    setToast({ visible: true, message, type });
+  const [savedRoutes, setSavedRoutes] = useState<SavedRoute[]>([]);
+  const [showSaved, setShowSaved] = useState(false);
+  const [routeName, setRouteName] = useState('');
+
+  const mapRef = useRef<MapRef>(null);
+
+  useEffect(() => {
+    setSavedRoutes(getSavedRoutes());
   }, []);
+
+  const showToast = useCallback(
+    (message: string, type: 'error' | 'success' = 'error') => {
+      setToast({ visible: true, message, type });
+    },
+    []
+  );
 
   const handleAddStop = () => {
     setStops((prev) => [...prev, { id: stopIdCounter++, value: '' }]);
@@ -51,7 +88,9 @@ export default function RoutesPage() {
   };
 
   const handleVisualize = async () => {
-    const addresses = [start, ...stops.map((s) => s.value), end].filter(Boolean);
+    const addresses = [start, ...stops.map((s) => s.value), end].filter(
+      Boolean
+    );
     if (addresses.length < 2) {
       showToast('Introduce al menos un punto de inicio y un final.');
       return;
@@ -74,8 +113,75 @@ export default function RoutesPage() {
     }
 
     setRouteCoordinates(validCoordinates);
+    setRouteLabels(addresses);
     showToast('Ruta visualizada correctamente.', 'success');
     setLoading(false);
+  };
+
+  const handleSave = () => {
+    if (routeCoordinates.length < 2) {
+      showToast('Visualiza una ruta primero.');
+      return;
+    }
+    const name =
+      routeName.trim() ||
+      `Ruta ${new Date().toLocaleDateString('es-MX', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}`;
+    const addresses = [start, ...stops.map((s) => s.value), end].filter(
+      Boolean
+    );
+    saveRoute(name, addresses, routeCoordinates);
+    setSavedRoutes(getSavedRoutes());
+    setRouteName('');
+    showToast('Ruta guardada.', 'success');
+  };
+
+  const handleLoadRoute = (route: SavedRoute) => {
+    setRouteCoordinates(route.coordinates);
+    setRouteLabels(route.addresses);
+    if (route.addresses.length >= 2) {
+      setStart(route.addresses[0]);
+      setEnd(route.addresses[route.addresses.length - 1]);
+      const middle = route.addresses.slice(1, -1);
+      setStops(
+        middle.length > 0
+          ? middle.map((v) => ({ id: stopIdCounter++, value: v }))
+          : [{ id: stopIdCounter++, value: '' }]
+      );
+    }
+    showToast(`Ruta "${route.name}" cargada.`, 'success');
+  };
+
+  const handleDeleteRoute = (id: string) => {
+    deleteRoute(id);
+    setSavedRoutes(getSavedRoutes());
+    showToast('Ruta eliminada.', 'success');
+  };
+
+  const handleExportPng = async () => {
+    const container = mapRef.current?.getContainer();
+    if (!container) {
+      showToast('No hay mapa para exportar.');
+      return;
+    }
+
+    setExporting(true);
+    try {
+      const html2canvas = (await import('html2canvas')).default;
+      const canvas = await html2canvas(container, {
+        useCORS: true,
+        allowTaint: true,
+        backgroundColor: '#f5f5f5',
+      });
+      const link = document.createElement('a');
+      link.download = `ruta-${Date.now()}.png`;
+      link.href = canvas.toDataURL('image/png');
+      link.click();
+      showToast('Imagen descargada.', 'success');
+    } catch {
+      showToast('Error al exportar imagen.');
+    } finally {
+      setExporting(false);
+    }
   };
 
   return (
@@ -112,7 +218,9 @@ export default function RoutesPage() {
                     <Label>Parada {index + 1}</Label>
                     <TextInput
                       value={stop.value}
-                      onChange={(e) => handleStopChange(stop.id, e.target.value)}
+                      onChange={(e) =>
+                        handleStopChange(stop.id, e.target.value)
+                      }
                       placeholder="Parada adicional"
                     />
                   </div>
@@ -135,6 +243,7 @@ export default function RoutesPage() {
               />
             </div>
 
+            {/* Action buttons */}
             <div className="space-y-base pt-md">
               <Button
                 variant="outline"
@@ -153,12 +262,117 @@ export default function RoutesPage() {
                 {loading ? 'Geocodificando...' : 'Visualizar Ruta'}
               </Button>
             </div>
+
+            {/* Save & Export section */}
+            {routeCoordinates.length > 1 && (
+              <motion.div
+                initial={{ opacity: 0, y: 12 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="space-y-sm border-t border-hairline pt-md"
+              >
+                <div className="flex items-end gap-sm">
+                  <div className="flex-grow">
+                    <Label>Nombre de ruta (opcional)</Label>
+                    <TextInput
+                      value={routeName}
+                      onChange={(e) => setRouteName(e.target.value)}
+                      placeholder="Mi ruta favorita"
+                    />
+                  </div>
+                  <button
+                    onClick={handleSave}
+                    className="flex h-[44px] w-[44px] flex-shrink-0 items-center justify-center rounded-md border border-hairline-strong text-ink transition-colors hover:bg-surface-strong"
+                    title="Guardar ruta"
+                  >
+                    <Save size={20} />
+                  </button>
+                </div>
+
+                <Button
+                  variant="outline"
+                  onClick={handleExportPng}
+                  disabled={exporting}
+                  className="w-full"
+                >
+                  <Download size={16} className="mr-xs" />
+                  {exporting ? 'Exportando...' : 'Descargar Mapa (PNG)'}
+                </Button>
+              </motion.div>
+            )}
+
+            {/* Saved routes accordion */}
+            <div className="border-t border-hairline pt-md">
+              <button
+                onClick={() => setShowSaved((v) => !v)}
+                className="flex w-full items-center justify-between text-title-sm font-medium text-ink"
+              >
+                <span className="flex items-center gap-xs">
+                  <FolderOpen size={18} />
+                  Rutas Guardadas ({savedRoutes.length})
+                </span>
+                {showSaved ? (
+                  <ChevronUp size={18} />
+                ) : (
+                  <ChevronDown size={18} />
+                )}
+              </button>
+
+              <AnimatePresence>
+                {showSaved && (
+                  <motion.div
+                    initial={{ opacity: 0, height: 0 }}
+                    animate={{ opacity: 1, height: 'auto' }}
+                    exit={{ opacity: 0, height: 0 }}
+                    transition={{ type: 'spring', stiffness: 300, damping: 25 }}
+                    className="mt-sm space-y-sm overflow-hidden"
+                  >
+                    {savedRoutes.length === 0 ? (
+                      <p className="text-body-sm text-muted">
+                        No hay rutas guardadas.
+                      </p>
+                    ) : (
+                      savedRoutes.map((route) => (
+                        <div
+                          key={route.id}
+                          className="flex items-center justify-between rounded-lg border border-hairline bg-surface-card px-base py-sm"
+                        >
+                          <button
+                            onClick={() => handleLoadRoute(route)}
+                            className="flex-grow text-left"
+                          >
+                            <p className="text-body-sm font-medium text-ink">
+                              {route.name}
+                            </p>
+                            <p className="text-caption text-muted">
+                              {route.addresses.length} paradas &middot;{' '}
+                              {new Date(route.createdAt).toLocaleDateString(
+                                'es-MX'
+                              )}
+                            </p>
+                          </button>
+                          <button
+                            onClick={() => handleDeleteRoute(route.id)}
+                            className="ml-sm flex h-[32px] w-[32px] flex-shrink-0 items-center justify-center rounded-md text-muted transition-colors hover:text-semantic-error"
+                          >
+                            <Trash2 size={16} />
+                          </button>
+                        </div>
+                      ))
+                    )}
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
           </div>
         </div>
 
         {/* Map */}
         <div className="col-span-1 h-[50vh] w-full md:col-span-2 md:h-full">
-          <Map routeCoordinates={routeCoordinates} />
+          <Map
+            ref={mapRef}
+            routeCoordinates={routeCoordinates}
+            labels={routeLabels}
+          />
         </div>
       </div>
 
