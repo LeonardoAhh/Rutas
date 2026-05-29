@@ -130,8 +130,22 @@ interface MapProps {
   labels?: string[];
 }
 
+function isValidCoord(c: unknown): c is Coordinates {
+  return (
+    c != null &&
+    typeof c === 'object' &&
+    'lat' in c &&
+    'lon' in c &&
+    typeof (c as Coordinates).lat === 'number' &&
+    typeof (c as Coordinates).lon === 'number' &&
+    !isNaN((c as Coordinates).lat) &&
+    !isNaN((c as Coordinates).lon)
+  );
+}
+
 const Map = forwardRef<MapRef, MapProps>(
-  ({ routeCoordinates, labels }, ref) => {
+  ({ routeCoordinates: rawCoords, labels }, ref) => {
+    const routeCoordinates = rawCoords.filter(isValidCoord);
     const defaultPosition: LatLngExpression = [40.416775, -3.70379];
     const containerRef = useRef<HTMLDivElement>(null);
 
