@@ -3,6 +3,7 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import dynamic from 'next/dynamic';
 import { geocodeAddress, type Coordinates } from '@/services/geocoding';
+import { getRoute } from '@/services/routing';
 import {
   getSavedRoutes,
   saveRoute,
@@ -49,6 +50,9 @@ export default function RoutesPage() {
   ]);
   const [end, setEnd] = useState('');
   const [routeCoordinates, setRouteCoordinates] = useState<Coordinates[]>([]);
+  const [roadGeometry, setRoadGeometry] = useState<[number, number][]>([]);
+  const [routeDistance, setRouteDistance] = useState<number | undefined>();
+  const [routeDuration, setRouteDuration] = useState<number | undefined>();
   const [routeLabels, setRouteLabels] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
   const [exporting, setExporting] = useState(false);
@@ -114,7 +118,19 @@ export default function RoutesPage() {
 
     setRouteCoordinates(validCoordinates);
     setRouteLabels(addresses);
-    showToast('Ruta visualizada correctamente.', 'success');
+
+    const routeResult = await getRoute(validCoordinates);
+    if (routeResult) {
+      setRoadGeometry(routeResult.geometry);
+      setRouteDistance(routeResult.distanceKm);
+      setRouteDuration(routeResult.durationMin);
+      showToast('Ruta calculada por carretera.', 'success');
+    } else {
+      setRoadGeometry([]);
+      setRouteDistance(undefined);
+      setRouteDuration(undefined);
+      showToast('Ruta visualizada (sin datos de carretera).', 'success');
+    }
     setLoading(false);
   };
 
@@ -135,9 +151,20 @@ export default function RoutesPage() {
     showToast('Ruta guardada.', 'success');
   };
 
-  const handleLoadRoute = (route: SavedRoute) => {
+  const handleLoadRoute = async (route: SavedRoute) => {
     setRouteCoordinates(route.coordinates);
     setRouteLabels(route.addresses);
+
+    const routeResult = await getRoute(route.coordinates);
+    if (routeResult) {
+      setRoadGeometry(routeResult.geometry);
+      setRouteDistance(routeResult.distanceKm);
+      setRouteDuration(routeResult.durationMin);
+    } else {
+      setRoadGeometry([]);
+      setRouteDistance(undefined);
+      setRouteDuration(undefined);
+    }
     if (route.addresses.length >= 2) {
       setStart(route.addresses[0]);
       setEnd(route.addresses[route.addresses.length - 1]);
@@ -259,7 +286,7 @@ export default function RoutesPage() {
                 disabled={loading}
                 className="w-full"
               >
-                {loading ? 'Geocodificando...' : 'Visualizar Ruta'}
+                {loading ? 'Calculando ruta...' : 'Visualizar Ruta'}
               </Button>
             </div>
 
@@ -371,6 +398,9 @@ export default function RoutesPage() {
           <Map
             ref={mapRef}
             routeCoordinates={routeCoordinates}
+            roadGeometry={roadGeometry}
+            distanceKm={routeDistance}
+            durationMin={routeDuration}
             labels={routeLabels}
           />
         </div>

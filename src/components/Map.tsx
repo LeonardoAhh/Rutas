@@ -35,32 +35,12 @@ function createNumberedIcon(index: number, total: number): L.DivIcon {
   });
 }
 
-function haversineKm(a: Coordinates, b: Coordinates): number {
-  const R = 6371;
-  const dLat = ((b.lat - a.lat) * Math.PI) / 180;
-  const dLon = ((b.lon - a.lon) * Math.PI) / 180;
-  const s =
-    Math.sin(dLat / 2) ** 2 +
-    Math.cos((a.lat * Math.PI) / 180) *
-      Math.cos((b.lat * Math.PI) / 180) *
-      Math.sin(dLon / 2) ** 2;
-  return R * 2 * Math.atan2(Math.sqrt(s), Math.sqrt(1 - s));
-}
-
-function totalDistanceKm(coords: Coordinates[]): number {
-  let total = 0;
-  for (let i = 1; i < coords.length; i++) {
-    total += haversineKm(coords[i - 1], coords[i]);
-  }
-  return total;
-}
-
 const AnimatedPolyline = ({
   positions,
 }: {
   positions: L.LatLngTuple[];
 }) => {
-  const [count, setCount] = useState(2);
+  const [count, setCount] = useState(positions.length);
   const frameRef = useRef<number>(0);
 
   useEffect(() => {
@@ -69,12 +49,13 @@ const AnimatedPolyline = ({
       return;
     }
 
+    const batchSize = Math.max(1, Math.floor(positions.length / 60));
     setCount(2);
     let idx = 2;
 
     const step = () => {
       if (idx < positions.length) {
-        idx++;
+        idx = Math.min(idx + batchSize, positions.length);
         setCount(idx);
         frameRef.current = requestAnimationFrame(step);
       }
@@ -93,10 +74,9 @@ const AnimatedPolyline = ({
     <Polyline
       positions={visible}
       pathOptions={{
-        color: '#292524',
-        weight: 4,
-        opacity: 0.85,
-        dashArray: '12, 8',
+        color: '#4F46E5',
+        weight: 5,
+        opacity: 0.9,
         lineCap: 'round',
         lineJoin: 'round',
       }}
@@ -105,20 +85,18 @@ const AnimatedPolyline = ({
 };
 
 const MapEffect = ({
-  routeCoordinates,
+  bounds,
 }: {
-  routeCoordinates: Coordinates[];
+  bounds: L.LatLngTuple[];
 }) => {
   const map = useMap();
 
   useEffect(() => {
-    if (routeCoordinates && routeCoordinates.length > 0) {
-      const bounds = new LatLngBounds(
-        routeCoordinates.map((c) => [c.lat, c.lon] as L.LatLngTuple)
-      );
-      map.fitBounds(bounds, { padding: [50, 50], maxZoom: 14 });
+    if (bounds.length > 0) {
+      const b = new LatLngBounds(bounds);
+      map.fitBounds(b, { padding: [50, 50], maxZoom: 15 });
     }
-  }, [routeCoordinates, map]);
+  }, [bounds, map]);
 
   return null;
 };
@@ -129,6 +107,9 @@ export interface MapRef {
 
 interface MapProps {
   routeCoordinates: Coordinates[];
+  roadGeometry?: [number, number][];
+  distanceKm?: number;
+  durationMin?: number;
   labels?: string[];
 }
 
@@ -145,8 +126,15 @@ function isValidCoord(c: unknown): c is Coordinates {
   );
 }
 
+function formatDuration(min: number): string {
+  if (min < 60) return `${Math.round(min)} min`;
+  const h = Math.floor(min / 60);
+  const m = Math.round(min % 60);
+  return m > 0 ? `${h} h ${m} min` : `${h} h`;
+}
+
 const Map = forwardRef<MapRef, MapProps>(
-  ({ routeCoordinates: rawCoords, labels }, ref) => {
+  ({ routeCoordinates: rawCoords, roadGeometry, distanceKm, durationMin, labels }, ref) => {
     const routeCoordinates = rawCoords.filter(isValidCoord);
     const defaultPosition: LatLngExpression = [40.416775, -3.70379];
     const containerRef = useRef<HTMLDivElement>(null);
@@ -159,10 +147,17 @@ const Map = forwardRef<MapRef, MapProps>(
       }
     }, [ref]);
 
-    const distance =
-      routeCoordinates.length > 1
-        ? totalDistanceKm(routeCoordinates)
-        : null;
+    const polylinePositions: L.LatLngTuple[] =
+      roadGeometry && roadGeometry.length > 1
+        ? roadGeometry
+        : routeCoordinates.map((c) => [c.lat, c.lon] as L.LatLngTuple);
+
+    const boundsPoints: L.LatLngTuple[] =
+      roadGeometry && roadGeometry.length > 0
+        ? roadGeometry
+        : routeCoordinates.map((c) => [c.lat, c.lon] as L.LatLngTuple);
+
+    const hasRoute = routeCoordinates.length > 1;
 
     return (
       <div ref={containerRef} className="relative h-full w-full">
@@ -194,23 +189,29 @@ const Map = forwardRef<MapRef, MapProps>(
               </Popup>
             </Marker>
           ))}
-          {routeCoordinates.length > 1 && (
-            <AnimatedPolyline
-              positions={routeCoordinates.map(
-                (c) => [c.lat, c.lon] as L.LatLngTuple
-              )}
-            />
+          {hasRoute && polylinePositions.length > 1 && (
+            <AnimatedPolyline positions={polylinePositions} />
           )}
-          <MapEffect routeCoordinates={routeCoordinates} />
+          {boundsPoints.length > 0 && <MapEffect bounds={boundsPoints} />}
         </MapContainer>
 
-        {distance !== null && (
+        {hasRoute && (distanceKm != null || durationMin != null) && (
           <div className="absolute bottom-lg left-lg z-[1000] rounded-xl border border-hairline bg-surface-card px-lg py-sm shadow-soft-drop">
             <p className="text-caption font-medium text-ink">
-              {routeCoordinates.length} paradas &middot;{' '}
-              {distance < 1
-                ? `${Math.round(distance * 1000)} m`
-                : `${distance.toFixed(1)} km`}
+              {routeCoordinates.length} paradas
+              {distanceKm != null && (
+                <>
+                  {' '}&middot;{' '}
+                  {distanceKm < 1
+                    ? `${Math.round(distanceKm * 1000)} m`
+                    : `${distanceKm.toFixed(1)} km`}
+                </>
+              )}
+              {durationMin != null && (
+                <>
+                  {' '}&middot; {formatDuration(durationMin)}
+                </>
+              )}
             </p>
           </div>
         )}
