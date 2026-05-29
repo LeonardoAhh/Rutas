@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback, useEffect, useRef } from 'react';
+import { useState, useCallback, useEffect, useRef, useMemo } from 'react';
 import dynamic from 'next/dynamic';
 import { geocodeAddress, type Coordinates } from '@/services/geocoding';
 import { getRoute } from '@/services/routing';
@@ -66,7 +66,14 @@ export default function RoutesPage() {
   const [showSaved, setShowSaved] = useState(false);
   const [routeName, setRouteName] = useState('');
 
-  const mapRef = useRef<MapRef>(null);
+  const mapRef = useRef<MapRef | null>(null);
+
+  const handleMapRef = useMemo(
+    () => (ref: MapRef) => {
+      mapRef.current = ref;
+    },
+    []
+  );
 
   const refreshSaved = useCallback(async () => {
     const routes = await getSavedRoutes();
@@ -490,7 +497,7 @@ export default function RoutesPage() {
         {/* Map */}
         <div className="col-span-1 h-[50vh] w-full md:col-span-2 md:h-full">
           <Map
-            ref={mapRef}
+            mapRefCallback={handleMapRef}
             routeCoordinates={routeCoordinates}
             roadGeometry={roadGeometry}
             distanceKm={routeDistance}
