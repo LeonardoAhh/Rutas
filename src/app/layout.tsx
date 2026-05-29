@@ -1,25 +1,24 @@
-import type { Metadata } from "next";
-import { EB_Garamond, Inter } from "next/font/google";
-import "./globals.css";
-import Link from "next/link";
+import type { Metadata } from 'next';
+import { EB_Garamond, Inter } from 'next/font/google';
+import './globals.css';
+import Link from 'next/link';
+import MobileNav from '@/components/layout/MobileNav';
 
-// Configurar la fuente Inter para el cuerpo del texto
 const inter = Inter({
-  subsets: ["latin"],
-  variable: "--font-inter", // Variable CSS para Inter
-  weights: ["400", "500", "600"],
+  subsets: ['latin'],
+  variable: '--font-inter',
+  weight: ['400', '500', '600'],
 });
 
-// Configurar la fuente EB Garamond como sustituto de Waldenburg para los títulos
-const eb_garamond = EB_Garamond({
-  subsets: ["latin"],
-  weight: "400", // design.md especifica peso 300, pero 400 es el más cercano en la fuente gratuita
-  variable: "--font-eb-garamond", // Variable CSS para EB Garamond
+const ebGaramond = EB_Garamond({
+  subsets: ['latin'],
+  weight: ['400'],
+  variable: '--font-eb-garamond',
 });
 
 export const metadata: Metadata = {
-  title: "Route Planner",
-  description: "Planifica y visualiza tus rutas con una estética editorial",
+  title: 'Route Planner',
+  description: 'Planifica y visualiza tus rutas con una estética editorial',
 };
 
 export default function RootLayout({
@@ -28,33 +27,38 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="es" className={`${inter.variable} ${eb_garamond.variable}`}>
+    <html lang="es" className={`${inter.variable} ${ebGaramond.variable}`}>
       <body className="bg-canvas font-sans text-body-md text-body">
-        <header className="border-b border-hairline">
-          <nav className="container mx-auto flex h-[64px] items-center justify-between px-xl">
+        <header className="border-b border-hairline bg-canvas">
+          <nav className="mx-auto flex h-[64px] max-w-[1200px] items-center justify-between px-base sm:px-xl">
             <h1 className="font-serif text-display-sm text-ink">
               <Link href="/">Route Planner</Link>
             </h1>
-            <div className="flex items-center space-x-lg">
+
+            {/* Desktop nav */}
+            <div className="hidden items-center space-x-lg md:flex">
               <Link
                 href="/routes"
-                className="font-medium text-nav-link text-ink hover:text-body-strong"
+                className="text-nav-link font-medium text-ink hover:text-body-strong"
               >
                 Planificar Ruta
               </Link>
               <Link
                 href="#"
-                className="font-medium text-nav-link text-ink hover:text-body-strong"
+                className="text-nav-link font-medium text-ink hover:text-body-strong"
               >
                 Acerca de
               </Link>
               <Link
                 href="#"
-                className="font-medium text-nav-link text-ink hover:text-body-strong"
+                className="text-nav-link font-medium text-ink hover:text-body-strong"
               >
                 Contacto
               </Link>
             </div>
+
+            {/* Mobile hamburger */}
+            <MobileNav />
           </nav>
         </header>
         <main>{children}</main>
