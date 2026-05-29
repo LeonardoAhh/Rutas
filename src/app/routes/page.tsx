@@ -217,9 +217,9 @@ export default function RoutesPage() {
         logging: false,
       });
 
-      const addresses = [start, ...stops.map((s) => s.value), end].filter(
-        Boolean
-      );
+      const addresses = routeLabels.length > 0
+        ? routeLabels
+        : [start, ...stops.map((s) => s.value), end].filter(Boolean);
       const name =
         routeName.trim() ||
         `Ruta — ${new Date().toLocaleDateString('es-MX', { day: '2-digit', month: 'long', year: 'numeric' })}`;
