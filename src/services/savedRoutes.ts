@@ -1,3 +1,13 @@
+import {
+  collection,
+  addDoc,
+  getDocs,
+  deleteDoc,
+  doc,
+  query,
+  orderBy,
+} from 'firebase/firestore';
+import { db } from '@/lib/firebase';
 import { type Coordinates } from './geocoding';
 
 export interface SavedRoute {
@@ -8,7 +18,7 @@ export interface SavedRoute {
   createdAt: number;
 }
 
-const STORAGE_KEY = 'route-planner-saved-routes';
+const COLLECTION = 'routes';
 
 function isValidCoord(c: unknown): c is Coordinates {
   return (
@@ -23,51 +33,54 @@ function isValidCoord(c: unknown): c is Coordinates {
   );
 }
 
-function readAll(): SavedRoute[] {
-  if (typeof window === 'undefined') return [];
+export async function getSavedRoutes(): Promise<SavedRoute[]> {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return [];
-    const parsed = JSON.parse(raw) as SavedRoute[];
-    return parsed.map((r) => ({
-      ...r,
-      coordinates: Array.isArray(r.coordinates)
-        ? r.coordinates.filter(isValidCoord)
-        : [],
-      addresses: Array.isArray(r.addresses) ? r.addresses : [],
-    }));
-  } catch {
+    const q = query(collection(db, COLLECTION), orderBy('createdAt', 'desc'));
+    const snapshot = await getDocs(q);
+    return snapshot.docs.map((d) => {
+      const data = d.data();
+      return {
+        id: d.id,
+        name: data.name ?? '',
+        addresses: Array.isArray(data.addresses) ? data.addresses : [],
+        coordinates: Array.isArray(data.coordinates)
+          ? data.coordinates.filter(isValidCoord)
+          : [],
+        createdAt: data.createdAt ?? 0,
+      };
+    });
+  } catch (error) {
+    console.error('Error al leer rutas:', error);
     return [];
   }
 }
 
-function writeAll(routes: SavedRoute[]): void {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(routes));
-}
-
-export function getSavedRoutes(): SavedRoute[] {
-  return readAll().sort((a, b) => b.createdAt - a.createdAt);
-}
-
-export function saveRoute(
+export async function saveRoute(
   name: string,
   addresses: string[],
   coordinates: Coordinates[]
-): SavedRoute {
-  const routes = readAll();
-  const route: SavedRoute = {
-    id: `route-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+): Promise<SavedRoute> {
+  const createdAt = Date.now();
+  const docRef = await addDoc(collection(db, COLLECTION), {
+    name,
+    addresses,
+    coordinates: coordinates.map((c) => ({ lat: c.lat, lon: c.lon })),
+    createdAt,
+  });
+
+  return {
+    id: docRef.id,
     name,
     addresses,
     coordinates,
-    createdAt: Date.now(),
+    createdAt,
   };
-  routes.push(route);
-  writeAll(routes);
-  return route;
 }
 
-export function deleteRoute(id: string): void {
-  const routes = readAll().filter((r) => r.id !== id);
-  writeAll(routes);
+export async function deleteRoute(id: string): Promise<void> {
+  try {
+    await deleteDoc(doc(db, COLLECTION, id));
+  } catch (error) {
+    console.error('Error al eliminar ruta:', error);
+  }
 }

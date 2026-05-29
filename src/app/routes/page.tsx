@@ -68,9 +68,14 @@ export default function RoutesPage() {
 
   const mapRef = useRef<MapRef>(null);
 
-  useEffect(() => {
-    setSavedRoutes(getSavedRoutes());
+  const refreshSaved = useCallback(async () => {
+    const routes = await getSavedRoutes();
+    setSavedRoutes(routes);
   }, []);
+
+  useEffect(() => {
+    refreshSaved();
+  }, [refreshSaved]);
 
   const showToast = useCallback(
     (message: string, type: 'error' | 'success' = 'error') => {
@@ -134,7 +139,7 @@ export default function RoutesPage() {
     setLoading(false);
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (routeCoordinates.length < 2) {
       showToast('Visualiza una ruta primero.');
       return;
@@ -145,8 +150,8 @@ export default function RoutesPage() {
     const addresses = [start, ...stops.map((s) => s.value), end].filter(
       Boolean
     );
-    saveRoute(name, addresses, routeCoordinates);
-    setSavedRoutes(getSavedRoutes());
+    await saveRoute(name, addresses, routeCoordinates);
+    await refreshSaved();
     setRouteName('');
     showToast('Ruta guardada.', 'success');
   };
@@ -178,9 +183,9 @@ export default function RoutesPage() {
     showToast(`Ruta "${route.name}" cargada.`, 'success');
   };
 
-  const handleDeleteRoute = (id: string) => {
-    deleteRoute(id);
-    setSavedRoutes(getSavedRoutes());
+  const handleDeleteRoute = async (id: string) => {
+    await deleteRoute(id);
+    await refreshSaved();
     showToast('Ruta eliminada.', 'success');
   };
 
