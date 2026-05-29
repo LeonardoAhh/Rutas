@@ -198,15 +198,16 @@ export default function RoutesPage() {
 
     setExporting(true);
 
-    await new Promise((r) => setTimeout(r, 800));
+    await new Promise((r) => setTimeout(r, 1000));
 
     try {
       const html2canvas = (await import('html2canvas')).default;
       const mapCanvas = await html2canvas(container, {
         useCORS: true,
-        allowTaint: true,
+        allowTaint: false,
         backgroundColor: '#ffffff',
         scale: 2,
+        logging: false,
       });
 
       const addresses = [start, ...stops.map((s) => s.value), end].filter(
@@ -216,10 +217,12 @@ export default function RoutesPage() {
         routeName.trim() ||
         `Ruta — ${new Date().toLocaleDateString('es-MX', { day: '2-digit', month: 'long', year: 'numeric' })}`;
 
-      const headerH = 80;
-      const stopsH = addresses.length * 28 + 20;
-      const footerH = routeDistance != null ? 50 : 0;
-      const padding = 32;
+      const scale = 2;
+      const headerH = 80 * scale;
+      const lineH = 32 * scale;
+      const stopsH = addresses.length * lineH + 20 * scale;
+      const footerH = routeDistance != null ? 50 * scale : 0;
+      const padding = 32 * scale;
       const totalH = headerH + stopsH + mapCanvas.height + footerH + padding;
       const totalW = mapCanvas.width;
 
@@ -233,40 +236,42 @@ export default function RoutesPage() {
       ctx.fillRect(0, 0, totalW, totalH);
 
       ctx.fillStyle = '#292524';
-      ctx.font = `bold ${28 * 2}px Inter, system-ui, sans-serif`;
-      ctx.fillText(name, padding, headerH - 16);
+      ctx.font = `bold ${28 * scale}px Inter, system-ui, sans-serif`;
+      ctx.fillText(name, padding, headerH - 16 * scale);
 
-      ctx.font = `${13 * 2}px Inter, system-ui, sans-serif`;
       addresses.forEach((addr, i) => {
-        const y = headerH + 12 + i * 28 * 2;
+        const y = headerH + 16 * scale + i * lineH;
         const isFirst = i === 0;
         const isLast = i === addresses.length - 1;
         const marker = isFirst ? 'A' : isLast ? 'B' : String(i);
         const color = isFirst ? '#16a34a' : isLast ? '#dc2626' : '#292524';
+        const circleR = 12 * scale;
 
         ctx.fillStyle = color;
         ctx.beginPath();
-        ctx.arc(padding + 12, y - 6, 12, 0, Math.PI * 2);
+        ctx.arc(padding + circleR, y, circleR, 0, Math.PI * 2);
         ctx.fill();
 
         ctx.fillStyle = '#ffffff';
-        ctx.font = `bold ${11 * 2}px Inter, system-ui, sans-serif`;
+        ctx.font = `bold ${11 * scale}px Inter, system-ui, sans-serif`;
         ctx.textAlign = 'center';
-        ctx.fillText(marker, padding + 12, y - 1);
-        ctx.textAlign = 'left';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(marker, padding + circleR, y);
 
+        ctx.textAlign = 'left';
+        ctx.textBaseline = 'alphabetic';
         ctx.fillStyle = '#57534e';
-        ctx.font = `${13 * 2}px Inter, system-ui, sans-serif`;
-        ctx.fillText(addr, padding + 36, y);
+        ctx.font = `${13 * scale}px Inter, system-ui, sans-serif`;
+        ctx.fillText(addr, padding + circleR * 2 + 12 * scale, y + 5 * scale);
       });
 
       const mapY = headerH + stopsH;
       ctx.drawImage(mapCanvas, 0, mapY);
 
       if (routeDistance != null) {
-        const footerY = mapY + mapCanvas.height + 16;
+        const footerY = mapY + mapCanvas.height + 20 * scale;
         ctx.fillStyle = '#292524';
-        ctx.font = `600 ${14 * 2}px Inter, system-ui, sans-serif`;
+        ctx.font = `600 ${14 * scale}px Inter, system-ui, sans-serif`;
         let info = `${routeCoordinates.length} paradas · ${routeDistance.toFixed(1)} km`;
         if (routeDuration != null) {
           const h = Math.floor(routeDuration / 60);
@@ -276,14 +281,26 @@ export default function RoutesPage() {
         ctx.fillText(info, padding, footerY);
       }
 
-      const link = document.createElement('a');
-      link.download = `ruta-${Date.now()}.png`;
-      link.href = out.toDataURL('image/png');
-      link.click();
-      showToast('Mockup descargado.', 'success');
-    } catch {
+      out.toBlob((blob) => {
+        if (!blob) {
+          showToast('Error al generar imagen.');
+          setExporting(false);
+          return;
+        }
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `ruta-${Date.now()}.png`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        showToast('Mockup descargado.', 'success');
+        setExporting(false);
+      }, 'image/png');
+    } catch (err) {
+      console.error('Export error:', err);
       showToast('Error al exportar imagen.');
-    } finally {
       setExporting(false);
     }
   };
